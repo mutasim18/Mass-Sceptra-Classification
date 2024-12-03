@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split, cross_val_score, Stratifie
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 import xgboost as xgb
+from sklearn.ensemble import RandomForestClassifier
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -227,6 +228,19 @@ def initialize_xgboost_model():
         use_label_encoder=False
     )
 
+# Initialize Random Forest model
+def initialize_random_forest_model():
+    """Initializes the Random Forest model with optimized parameters."""
+    return RandomForestClassifier(
+        n_estimators=100,  # Number of trees
+        max_depth=None,    # Maximum depth of the tree
+        min_samples_split=2,  # Minimum samples required to split an internal node
+        min_samples_leaf=1,   # Minimum samples required to be at a leaf node
+        random_state=42,      # Ensures reproducibility
+        class_weight='balanced',  # Handles class imbalance
+        n_jobs=-1  # Utilize all CPU cores
+    )
+
 # Cross-validation
 def perform_cross_validation(model, X_train, y_train):
     """Performs cross-validation and prints the results."""
@@ -253,29 +267,43 @@ def train_and_evaluate(model, X_train, y_train, X_test, y_test):
     
     return y_pred, y_prob
 
-# feature importance
 def plot_feature_importance(model, feature_names):
-    """Plots the importance of features."""
-    importance = model.feature_importances_
-    
-    # Create a DataFrame for feature importance
-    importance_df = pd.DataFrame({
-        'Feature': feature_names,
-        'Importance': importance
-    }).sort_values('Importance', ascending=False)
+    """Plots the importance of features and displays values on the bars."""
+    try:
+        # Check if the model has feature importances
+        if hasattr(model, 'feature_importances_') and len(model.feature_importances_) > 0:
+            importance = model.feature_importances_
+        else:
+            # Try alternative method for XGBoost models
+            booster = model.get_booster()
+            importance_dict = booster.get_score(importance_type='weight')
+            importance = [importance_dict.get(f'f{i}', 0) for i in range(len(feature_names))]
 
-    # Plot the feature importance
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='Importance', y='Feature', data=importance_df, palette='viridis')
-    plt.title('Feature Importance')
-    plt.xlabel('Importance Score')
-    plt.ylabel('Features')
-    plt.tight_layout()
-    plt.show()
-    
-    # Print feature importance values
-    print("\nFeature Importance Values:")
-    print(importance_df.to_string(index=False))  # Print DataFrame without the index
+        # Create a DataFrame for feature importance
+        importance_df = pd.DataFrame({
+            'Feature': feature_names,
+            'Importance': importance
+        }).sort_values('Importance', ascending=False)
+
+        # Plot the feature importance
+        plt.figure(figsize=(10, 6))
+        ax = sns.barplot(x='Importance', y='Feature', data=importance_df, palette='viridis')
+
+        # Add values to the bars
+        for i, value in enumerate(importance_df['Importance']):
+            ax.text(value + 0.01, i, f'{value:.4f}', va='center', ha='left', fontsize=10, color='black')
+
+        # Add titles and labels
+        plt.title('Feature Importance')
+        plt.xlabel('Importance Score')
+        plt.ylabel('Features')
+        plt.tight_layout()
+        plt.show()
+
+    except AttributeError as e:
+        print(f"Error accessing feature importances: {e}. Is the model trained?")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 # correlation
 def plot_correlation(y_test, y_prob):
