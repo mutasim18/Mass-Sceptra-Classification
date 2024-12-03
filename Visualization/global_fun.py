@@ -272,6 +272,10 @@ def plot_feature_importance(model, feature_names):
     plt.ylabel('Features')
     plt.tight_layout()
     plt.show()
+    
+    # Print feature importance values
+    print("\nFeature Importance Values:")
+    print(importance_df.to_string(index=False))  # Print DataFrame without the index
 
 # correlation
 def plot_correlation(y_test, y_prob):
