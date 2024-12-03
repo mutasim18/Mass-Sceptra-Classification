@@ -5,6 +5,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier
+import lightgbm as lgb
+from sklearn.naive_bayes import GaussianNB
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -240,6 +242,25 @@ def initialize_random_forest_model():
         class_weight='balanced',  # Handles class imbalance
         n_jobs=-1  # Utilize all CPU cores
     )
+
+def initialize_lightgbm_model():
+    """Initializes the LightGBM model with optimized parameters."""
+    return lgb.LGBMClassifier(
+        max_depth=10,
+        learning_rate=0.01,
+        n_estimators=300,
+        num_leaves=31,
+        boosting_type='gbdt',
+        objective='binary',
+        class_weight='balanced',
+        random_state=42,
+        n_jobs=-1
+    )
+
+# Initialize Naive Bayes model
+def initialize_naive_bayes_model():
+    """Initializes the Gaussian Naive Bayes model."""
+    return GaussianNB()
 
 # Cross-validation
 def perform_cross_validation(model, X_train, y_train):
