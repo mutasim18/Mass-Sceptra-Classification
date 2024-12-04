@@ -1,3 +1,4 @@
+# libraries
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
@@ -15,6 +16,7 @@ import joblib
 import warnings
 warnings.filterwarnings('ignore')
 
+# Functions
 # Function to read mass spectra data from CSV
 def load_spectrum(filepath):
     """Reads CSV file containing mass spectrum data
@@ -65,15 +67,28 @@ def align_spectra(mz1, intensities1, mz2, intensities2, n_points=1000):
         print(f"Error aligning spectra: {str(e)}")
         return None, None, None
 
-# Function to calculate cosine similarity only
+# Function to calculate similarity features between two spectra
 def calculate_similarity_features(mz, int1, int2):
-    """Calculates cosine similarity between spectra vectors"""
+    """Calculates 3 similarity metrics between spectra:
+    1. Cosine similarity: angle between spectra vectors
+    2. Area ratio: ratio of areas under curves
+    3. Standard deviation ratio: ratio of intensity spreads"""
     try:
         # Calculate cosine similarity (angle between vectors)
         cosine_sim = np.dot(int1, int2) / (np.linalg.norm(int1) * np.linalg.norm(int2))
         
+        # Calculate area ratios using trapezoidal integration
+        area1 = np.trapz(int1, mz)
+        area2 = np.trapz(int2, mz)
+        area_ratio = min(area1/area2, area2/area1) if area1 > 0 and area2 > 0 else 0
+        
+        # Calculate standard deviation ratios
+        std_ratio = min(np.std(int1)/np.std(int2), np.std(int2)/np.std(int1)) if np.std(int1) > 0 and np.std(int2) > 0 else 0
+        
         features = {
             'cosine_similarity': cosine_sim,
+            'area_ratio': area_ratio,
+            'std_ratio': std_ratio
         }
         
         # Check for invalid values
@@ -93,39 +108,6 @@ def check_compound_existence(base_path, compound_num):
         if os.path.exists(f"{base_path}/{compound_num:02d}-{i:02d}.csv"):
             return True
     return False
-
-def calculate_multiple_features(mz, int1, int2):
-    """Calculates 3 similarity metrics between spectra:
-    1. Cosine similarity: angle between spectra vectors
-    2. Area ratio: ratio of areas under curves
-    3. Standard deviation ratio: ratio of intensity spreads"""
-    try:
-        # Calculate cosine similarity (angle between vectors)
-        cosine_sim = np.dot(int1, int2) / (np.linalg.norm(int1) * np.linalg.norm(int2))
-        
-        # Calculate area ratios using trapezoidal integration
-        area1 = np.trapz(int1, mz)
-        area2 = np.trapz(int2, mz)
-        area_ratio = min(area1 / area2, area2 / area1) if area1 > 0 and area2 > 0 else 0
-        
-        # Calculate standard deviation ratios
-        std_ratio = min(np.std(int1) / np.std(int2), np.std(int2) / np.std(int1)) if np.std(int1) > 0 and np.std(int2) > 0 else 0
-        
-        features = {
-            'cosine_similarity': cosine_sim,
-            'area_ratio': area_ratio,
-            'std_ratio': std_ratio
-        }
-        
-        # Check for invalid values
-        if not all(np.isfinite(v) for v in features.values()):
-            return None
-            
-        return features
-        
-    except Exception as e:
-        print(f"Error calculating features: {str(e)}")
-        return None
 
 # Main function to generate comparison dataset
 def generate_balanced_comparisons(base_path, debug=False):
@@ -295,7 +277,7 @@ def initialize_naive_bayes_model():
     """Initializes the Gaussian Naive Bayes model."""
     return GaussianNB()
 
-# Cross-validation
+#cross-validation
 def perform_cross_validation(model, X_train, y_train):
     """Performs cross-validation and prints the results."""
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -304,7 +286,7 @@ def perform_cross_validation(model, X_train, y_train):
     print(f"Mean CV score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
     return cv_scores
 
-# Model train and evaluation
+#model train and evaluation
 def train_and_evaluate(model, X_train, y_train, X_test, y_test):
     """Trains the model and evaluates its performance on the test set."""
     print("\nTraining model...")
@@ -321,43 +303,25 @@ def train_and_evaluate(model, X_train, y_train, X_test, y_test):
     
     return y_pred, y_prob
 
+# Feature importance 
 def plot_feature_importance(model, feature_names):
-    """Plots the importance of features and displays values on the bars."""
-    try:
-        # Check if the model has feature importances
-        if hasattr(model, 'feature_importances_') and len(model.feature_importances_) > 0:
-            importance = model.feature_importances_
-        else:
-            # Try alternative method for XGBoost models
-            booster = model.get_booster()
-            importance_dict = booster.get_score(importance_type='weight')
-            importance = [importance_dict.get(f'f{i}', 0) for i in range(len(feature_names))]
-
-        # Create a DataFrame for feature importance
-        importance_df = pd.DataFrame({
-            'Feature': feature_names,
-            'Importance': importance
-        }).sort_values('Importance', ascending=False)
-
-        # Plot the feature importance
-        plt.figure(figsize=(10, 6))
-        ax = sns.barplot(x='Importance', y='Feature', data=importance_df, palette='viridis')
-
-        # Add values to the bars
-        for i, value in enumerate(importance_df['Importance']):
-            ax.text(value + 0.01, i, f'{value:.4f}', va='center', ha='left', fontsize=10, color='black')
-
-        # Add titles and labels
-        plt.title('Feature Importance')
-        plt.xlabel('Importance Score')
-        plt.ylabel('Features')
-        plt.tight_layout()
-        plt.show()
-
-    except AttributeError as e:
-        print(f"Error accessing feature importances: {e}. Is the model trained?")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+    """Plots the feature importance of the trained model."""
+    importance = model.feature_importances_
+    importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': importance
+    }).sort_values('Importance', ascending=True)
+    
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Importance', y='Feature', data=importance_df, palette='viridis')
+    plt.title('Feature Importance')
+    plt.xlabel('Importance Score')
+    plt.tight_layout()
+    plt.show()
+    
+    print("\nFeature Importance Rankings:")
+    for name, imp in sorted(zip(feature_names, importance), key=lambda x: x[1], reverse=True):
+        print(f"{name:20} {imp:.4f}")
 
 # correlation
 def plot_correlation(y_test, y_prob):
