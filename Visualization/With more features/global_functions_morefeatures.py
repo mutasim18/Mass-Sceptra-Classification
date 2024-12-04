@@ -323,6 +323,18 @@ def plot_feature_importance(model, feature_names):
     for name, imp in sorted(zip(feature_names, importance), key=lambda x: x[1], reverse=True):
         print(f"{name:20} {imp:.4f}")
 
+def calculate_naive_bayes_feature_importance(model, feature_names):
+    """Calculate feature importance for a Naive Bayes model."""
+    # Variance of the means (theta_) across classes for each feature
+    feature_importance = model.theta_.var(axis=0)
+    
+    # Create a DataFrame for visualization
+    importance_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': feature_importance
+    }).sort_values('Importance', ascending=False)
+    return importance_df
+
 # correlation
 def plot_correlation(y_test, y_prob):
     """Plots the correlation between predicted probabilities and actual labels."""
