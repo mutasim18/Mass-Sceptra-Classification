@@ -280,7 +280,7 @@ def initialize_naive_bayes_model():
 #cross-validation
 def perform_cross_validation(model, X_train, y_train):
     """Performs cross-validation and prints the results."""
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
     cv_scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='accuracy')
     print("\nCross-validation scores:", cv_scores)
     print(f"Mean CV score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
